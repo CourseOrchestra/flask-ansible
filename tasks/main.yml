@@ -1,0 +1,106 @@
+---
+- name: install packages
+  apt:
+    name: [gunicorn, python3.5, libssl-dev, libffi-dev, python3-dev,
+           python3-pip, build-essential, libpq-dev, python3-venv]
+
+- name: create flask group
+  group:
+    name={{ flaskapp_app_user }}
+    state=present
+
+- name: create flask user
+  user:
+    name={{ flaskapp_app_user }}
+    group={{ flaskapp_app_user }}
+
+- name: Create app log directory
+  file: dest={{ flaskapp_app_log_directory }} state=directory
+
+- name: Checkout sources
+  unarchive:
+    dest=/opt
+    remote_src=true
+    src={{ sources_url }}
+    owner={{ flaskapp_app_user }}
+    group={{ flaskapp_app_user }}
+    validate_certs=no
+  register: source_update
+  notify: restart app
+
+- name: create symlink to sources
+  file:
+    dest: "{{ flaskapp_app_directory }}"
+    src: "/opt/{{ source_name }}"
+    state: link
+  when: source_update.changed
+
+- name: Upgrade pip
+  pip:
+    name: [pip, wheel]
+    virtualenv: "{{ flaskapp_app_directory }}/venv"
+    virtualenv_command: pyvenv
+    extra_args: --upgrade
+
+# TODO костыль из-за глюка setuptools
+- name: Install Flask
+  pip:
+    name: [Flask]
+    virtualenv: "{{ flaskapp_app_directory }}/venv"
+    virtualenv_command: pyvenv
+
+- name: Install app package
+  shell:
+    cmd: "source venv/bin/activate && python3 setup.py install"
+    chdir: "{{ flaskapp_app_directory }}"
+  args:
+    executable: /bin/bash
+  when: source_update.changed
+
+- name: config app
+  template:
+    src=env.j2 dest={{ flaskapp_app_directory }}/.env
+    owner={{ flaskapp_app_user }} group={{ flaskapp_app_user }}
+    mode=0600
+  notify: restart app
+
+- name: Checkout static
+  unarchive:
+    dest={{ flaskapp_app_directory }}
+    remote_src=true
+    src={{ static_url }}
+    owner={{ flaskapp_app_user }}
+    group={{ flaskapp_app_user }}
+    validate_certs=false
+  when: static
+
+- name: migrate db structure
+  shell: |
+    cd {{ flaskapp_app_directory }}
+    source venv/bin/activate
+    flask db upgrade
+  args:
+    executable: /bin/bash
+  environment:
+    FLASK_APP: "{{ flask_app }}.py"
+  when: migrate
+  notify: restart app
+
+- name: set permissions
+  file:
+    path: "{{ flaskapp_app_directory }}/venv"
+    owner: "{{ flaskapp_app_user }}"
+    group: "{{ flaskapp_app_user }}"
+    recurse: true
+
+- name: app
+  include: webapp.yml
+  when: webapp
+
+- name: worker
+  include: worker.yml
+  when: worker
+
+- name: scheduler
+  include: scheduler.yml
+  when: scheduler

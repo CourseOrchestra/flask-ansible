@@ -1,0 +1,18 @@
+---
+db_ip: "{{ hostvars['postgres']['ansible_default_ipv4']['address'] }}"
+
+artifactory_root: artifactory.corchestra.ru/artifactory
+
+artifactory_url: "https://{{ artifactory_user }}:{{ artifactory_pwd }}@{{ artifactory_root }}"
+
+flask_app: manage
+
+migrate: false
+scheduler: false
+static: false
+worker: false
+webapp: false
+
+webapp_command: "gunicorn {{ flask_app }}:app -b 0.0.0.0:{{ flaskapp_port }}"
+scheduler_command: flask run_scheduler
+worker_command: flask run_worker

@@ -1,0 +1,22 @@
+---
+- name: set variables for worker
+  set_fact:
+    flaskapp_app_name: 'worker'
+    command: "{{ worker_command }}"
+
+- name: Copy run script
+  template:
+    src: run.sh.j2
+    dest: "{{ flaskapp_app_directory }}/run_{{ flaskapp_app_name }}.sh"
+    mode: a+x
+  notify: restart supervisor
+
+- name: install postgres packages
+  apt:
+    name: [postgresql-client]
+
+- name: Ensure supervisor config for app
+  template:
+    src: supervisor.conf.j2
+    dest: /etc/supervisor/conf.d/{{ flaskapp_app_name }}.conf
+  notify: restart supervisor
