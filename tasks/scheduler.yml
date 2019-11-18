@@ -3,17 +3,7 @@
   set_fact:
     flaskapp_app_name: 'scheduler'
     command: "{{ scheduler_command }}"
-
-- name: Copy run script
-  template:
-    src: run.sh.j2
-    dest: "{{ flaskapp_app_directory }}/run_{{ flaskapp_app_name }}.sh"
-    mode: a+x
-  notify: restart supervisor
-
-- name: install postgres packages
-  apt:
-    name: [postgresql-client]
+    numprocs: 1
 
 - name: Ensure supervisor config for app
   template:

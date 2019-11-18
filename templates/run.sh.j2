@@ -1,9 +1,0 @@
-#!/bin/bash
-
-FLASKDIR="{{ flaskapp_app_directory }}"
-
-# activate the virtualenv
-cd $FLASKDIR
-source venv/bin/activate
-
-exec {{ command }}
