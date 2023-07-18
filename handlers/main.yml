@@ -1,8 +1,10 @@
 ---
-- name: restart app
-  supervisorctl:
-    name: '{{ flaskapp_app_name }}:'
+- name: restart supervisor
+  service:
+    name: supervisor
     state: restarted
 
-- name: restart supervisor
-  service: name=supervisor state=restarted
+- name: restart app
+  supervisorctl:
+    name: '{{ flaskapp_name }}:'
+    state: restarted

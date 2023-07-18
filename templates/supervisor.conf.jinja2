@@ -1,0 +1,18 @@
+[program:{{ flaskapp_name }}]
+command={{ webapp_command }}
+directory={{ flask_root_dir }}
+
+user={{ flask_user }}
+
+process_name=%(program_name)s-%(process_num)s
+
+numprocs={{ numprocs }}
+
+startretries=3
+autostart=true
+autorestart=true
+stopwaitsecs = 60
+redirect_stderr = True
+
+stdout_logfile = {{ flask_log_dir }}/{{ flaskapp_name }}.log
+stderr_logfile = {{ flask_log_dir }}/{{ flaskapp_name }}.error.log

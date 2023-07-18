@@ -1,63 +1,63 @@
-Flask Ansible
-=============
-Роль для установки flask сервера
+Flask
+=========
 
-Variables
---------
+Установка и настройка flask приложения
+
+
+Role Variables
+--------------
+
+A description of the settable variables for this role should go here, including any variables that are in defaults/main.yml, vars/main.yml, and any variables that can/should be set via parameters to the role. Any variables that are read from other roles and/or the global scope (ie. hostvars, group vars, etc.) should be mentioned here as well.
+
+#### Variables
+
 ```yaml
-artifactory_root: artifactory.corchestra.ru/artifactory
 
-artifactory_url: "https://{{ artifactory_user }}:{{ artifactory_pwd }}@{{ artifactory_root }}"
+python_version: 3.7.17
 
-flask_app: manage
+flaskapp_name: flask
 
-migrate: false
-scheduler: false
-static: false
-worker: false
-webapp: false
+flask_root_dir: /opt/api
+flask_log_dir: /var/log/{{ flaskapp_name }}
 
-webapp_command: "gunicorn {{ flask_app }}:app -b 0.0.0.0:{{ flaskapp_port }}"
-scheduler_command: flask run-scheduler
-worker_command: flask run-worker
-venv_lib: pyvenv
-admin_part: yes  # установка пакетов, создание пользователя
+flask_user: flask
+
+flaskapp_port: 5000
+workers_num: 4
+
+virtualenv: virtualenv
+
+sources_url: https://github.com/sdhutchins/flask-demo.git
+checkout_style: git
+
+flask_environment:
+  FLASK_CONFIG: production
+  APP_PORT: "{{ flaskapp_port }}"
+  FLASK_APP: run
+
+webapp_command: "/bin/bash -c 'source venv/bin/activate && gunicorn {{ flask_environment.FLASK_APP }} -b 0.0.0.0:{{ flaskapp_port }} --limit-request-line 0 --timeout 600 --workers {{ workers_num }}'"
+
+flask_db_migrate: false
+
 
 ```
 
 Example Playbook
 ----------------
+
+Including an example of how to use your role (for instance, with variables passed in as parameters) is always nice for users too:
+
 ```yaml
----
-- name: Gather facts for all hosts (if using --limit)
-  hosts: all
-  gather_facts: false
-  tasks:
-    - name: Gather facts
-      setup:
-        delegate_to: "{{item}}"
-        delegate_facts: true
-        with_items:
-          - "{{ groups.all }}"
 
-- hosts: flask
-  gather_facts: false
-  roles:
-    - role: supervisor
+  - hosts: app
+    roles:
+      - role: CourseIT.flask
+        vars:
+          flask_db_migrate: true
+  - hosts: worker
+    roles:
+      - role: CourseIT.flask
+        vars:
+          flask_db_migrate: false
 
-- hosts: app
-  gather_facts: false
-  roles:
-    - role: flask
-  vars:
-    webapp: true
-    static: true
-
-- hosts: worker
-  gather_facts: false
-  roles:
-    - role: flask
-  vars:
-    worker: true
-    scheduler: true
 ```

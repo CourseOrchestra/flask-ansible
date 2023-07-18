@@ -1,0 +1,71 @@
+---
+- name: Flask | Install supervisor
+  apt:
+    name: [supervisor]
+  notify: restart supervisor
+
+- name: Flask | Create log directory
+  file:
+    dest: "{{ flask_log_dir }}"
+    state: directory
+    owner: {{ flask_user }}
+    group: {{ flask_user }}
+
+- name: Flask | Create app directory
+  file:
+    dest: "{{ flask_root_dir }}"
+    state: directory
+    owner: {{ flask_user }}
+    group: {{ flask_user }}
+
+# TODO возможно создавать автоматически тег??
+- name: Flask | Checkout sources
+  git:
+    repo: "{{ sources_url }}"
+    dest: "{{ flask_root_dir }}"
+    force: true
+    single_branch: true
+  register: source_changed
+  notify: restart app
+
+- name: Flask | Install virtualenv
+  pip:
+    name: "{{ virtualenv }}"
+    executable: pip{{ python_version_short }}
+
+- name: Flask | Install requirements
+  pip:
+    requirements: "{{ flask_root_dir }}/requirements.txt"
+    virtualenv: "{{ flask_root_dir }}/venv"
+    virtualenv_python: python{{ python_version_short }}
+  when: virtualenv == 'virtualenv'
+
+- name: Flask | Install gunicorn
+  pip:
+    virtualenv: "{{ flask_root_dir }}/venv"
+    virtualenv_python: python{{ python_version_short }}
+    name: gunicorn
+
+- name: Flask | Config app
+  template:
+    src: .env.jinja2
+    dest: "{{ flask_root_dir }}/.env"
+    owner: {{ flask_user }}
+    group: {{ flask_user }}
+    mode: 0600
+  notify: restart app
+
+- name: Flask | Migrate DB structure
+  shell: |
+    cd {{ flask_root_dir }}
+    source venv/bin/activate
+    flask db upgrade
+  environment:
+    FLASK_APP: "{{ flask_app }}"
+  when: flask_db_migrate and source_changed
+
+- name: Flask | Configure supervisor
+  template:
+    src: supervisor.conf.jinja2
+    dest: /etc/supervisor/conf.d/{{ flaskapp_name }}.conf
+  notify: restart supervisor

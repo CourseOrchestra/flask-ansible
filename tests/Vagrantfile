@@ -1,0 +1,29 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+
+  config.vm.provider "virtualbox" do |vb|
+    vb.customize [ "modifyvm", :id, "--uartmode1", "disconnected" ]
+  end
+
+  boxes = [
+    { :name => "ubuntu16", :box => "ubuntu/xenial64", :port => 2522 },
+    { :name => "ubuntu18", :box => "ubuntu/bionic64", :port => 2622 },
+    { :name => "ubuntu20", :box => "ubuntu/focal64", :port => 2722 }
+  ]
+  boxes.each do |opts|
+    config.vm.define opts[:name] do |config|
+      config.vm.box = opts[:box]
+      
+      config.vm.network :forwarded_port, guest: 22, host: opts[:port], auto_correct: false, id: "ssh"
+
+      # if opts[:name] == boxes.last[:name]
+        config.vm.provision "ansible" do |ansible|
+          ansible.playbook = "test.yml"
+          ansible.limit = "all"
+        end
+      # end
+    end
+  end
+end

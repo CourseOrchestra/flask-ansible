@@ -1,0 +1,44 @@
+---
+- name: Python | Check if already installed
+  stat: path=/usr/local/bin/python{{ python_version_short }}
+  register: python
+
+- block:
+    - name: Python | Install prerequisites
+      apt:
+        name:
+          [
+            build-essential,
+            zlib1g-dev,
+            libncurses5-dev,
+            libgdbm-dev,
+            libnss3-dev,
+            libssl-dev,
+            libsqlite3-dev,
+            libreadline-dev,
+            libffi-dev,
+            wget,
+            libbz2-dev,
+          ]
+        state: present
+        update_cache: yes
+
+    - name: Python | Download sources
+      unarchive:
+        src: https://www.python.org/ftp/python/{{ python_version }}/Python-{{ python_version }}.tgz
+        dest: /tmp
+        remote_src: yes
+
+    - name: Python | Configure, compile and install
+      shell: cd /tmp/Python-{{ python_version }} && {{ item }}
+      with_items:
+        - ./configure
+        - make
+        - make altinstall
+
+  when: not python.stat.exists
+
+- name: Python | Clear cache
+  file:
+    path: /tmp/Python-{{ python_version }}
+    state: absent
