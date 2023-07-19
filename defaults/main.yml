@@ -7,22 +7,26 @@ flaskapp_name: flask
 flask_root_dir: /opt/api
 flask_log_dir: /var/log/{{ flaskapp_name }}
 
-flask_user: flask
+flask_user: vagrant
 
 flaskapp_port: 5000
-workers_num: 4
-numprocs: 1
+workers_num: 4 # количество воркеров в гуникорне
+numprocs: 1 # количество одновременно запущенных приложений в супервизоре
 
-virtualenv: virtualenv
+virtualenv: pipenv # какая система управления пакетами (альтернатива - pipenv)
 
-sources_url: https://github.com/sdhutchins/flask-demo.git
+sources_url: git@github.com:CourseIT/issagg-api.git
 checkout_style: git
 
-flask_environment:
+flask_environment: # переменные среды для приложения
   FLASK_CONFIG: production
   APP_PORT: "{{ flaskapp_port }}"
-  FLASK_APP: run
+  FLASK_APP: manage
+  SQLALCHEMY_DATABASE_URI: postgresql://postgres:postgres@localhost/test
+  FILE_REPO_CLUSTER_PATH: /tmp
 
-webapp_command: "/bin/bash -c 'source venv/bin/activate && gunicorn {{ flask_environment.FLASK_APP }} -b 0.0.0.0:{{ flaskapp_port }} --limit-request-line 0 --timeout 600 --workers {{ workers_num }}'"
+# команда для запуска веб приложения
+webapp_command: "/bin/bash -c 'python{{ python_version_short }} -m pipenv run gunicorn {{ flask_environment.FLASK_APP }}:app -b 0.0.0.0:{{ flaskapp_port }} --limit-request-line 0 --timeout 600 --workers {{ workers_num }}'"
 
-flask_db_migrate: false
+# нужно ли мигрировать базу
+flask_db_migrate: true

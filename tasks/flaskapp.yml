@@ -1,22 +1,37 @@
 ---
+- name: Flask | Create group
+  group:
+    name: "{{ flask_user }}"
+    state: present
+  become: true
+
+- name: Flask | Create user
+  user:
+    name: "{{ flask_user }}"
+    group: "{{ flask_user }}"
+  become: true
+
 - name: Flask | Install supervisor
   apt:
     name: [supervisor]
   notify: restart supervisor
+  become: true
 
 - name: Flask | Create log directory
   file:
     dest: "{{ flask_log_dir }}"
     state: directory
-    owner: {{ flask_user }}
-    group: {{ flask_user }}
+    owner: "{{ flask_user }}"
+    group: "{{ flask_user }}"
+  become: true
 
 - name: Flask | Create app directory
   file:
     dest: "{{ flask_root_dir }}"
     state: directory
-    owner: {{ flask_user }}
-    group: {{ flask_user }}
+    owner: "{{ flask_user }}"
+    group: "{{ flask_user }}"
+  become: true
 
 # TODO возможно создавать автоматически тег??
 - name: Flask | Checkout sources
@@ -25,7 +40,8 @@
     dest: "{{ flask_root_dir }}"
     force: true
     single_branch: true
-  register: source_changed
+  when: sources_url and checkout_style == 'git'
+  register: checkout_sources
   notify: restart app
 
 - name: Flask | Install virtualenv
@@ -33,12 +49,13 @@
     name: "{{ virtualenv }}"
     executable: pip{{ python_version_short }}
 
-- name: Flask | Install requirements
-  pip:
-    requirements: "{{ flask_root_dir }}/requirements.txt"
-    virtualenv: "{{ flask_root_dir }}/venv"
-    virtualenv_python: python{{ python_version_short }}
-  when: virtualenv == 'virtualenv'
+- name: Flask | Install requirements | pipenv
+  shell:
+    cmd: "python{{ python_version_short }} -m pipenv install"
+    chdir: "{{ flask_root_dir }}"
+  args:
+    executable: /bin/bash
+  when: sources_url and virtualenv == 'pipenv' and checkout_sources.changed
 
 - name: Flask | Install gunicorn
   pip:
@@ -50,22 +67,32 @@
   template:
     src: .env.jinja2
     dest: "{{ flask_root_dir }}/.env"
-    owner: {{ flask_user }}
-    group: {{ flask_user }}
+    owner: "{{ flask_user }}"
+    group: "{{ flask_user }}"
     mode: 0600
   notify: restart app
 
-- name: Flask | Migrate DB structure
-  shell: |
-    cd {{ flask_root_dir }}
-    source venv/bin/activate
-    flask db upgrade
+- name: Flask | Migrate DB structure | virtualenv
+  shell:
+    chdir: "{{ flask_root_dir }}"
+    cmd: \
+      source venv/bin/activate
+      flask db upgrade
   environment:
-    FLASK_APP: "{{ flask_app }}"
-  when: flask_db_migrate and source_changed
+    FLASK_APP: "{{ flask_environment.FLASK_APP }}"
+  when: flask_db_migrate and virtualenv == 'virtualenv' and checkout_sources.changed
+
+- name: Flask | Migrate DB structure | pipenv
+  shell:
+    chdir: "{{ flask_root_dir }}"
+    cmd: python{{ python_version_short }} -m pipenv run flask db upgrade
+  environment:
+    FLASK_APP: "{{ flask_environment.FLASK_APP }}"
+  when: flask_db_migrate and virtualenv == 'pipenv' and checkout_sources.changed 
 
 - name: Flask | Configure supervisor
   template:
     src: supervisor.conf.jinja2
     dest: /etc/supervisor/conf.d/{{ flaskapp_name }}.conf
   notify: restart supervisor
+  become: true

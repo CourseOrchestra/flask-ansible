@@ -1,6 +1,7 @@
 ---
 - import_tasks: install_python.yml
   tags: [python, python-install]
+  become: true
 
 - import_tasks: flaskapp.yml
   tags: [flask, flask-configure]
